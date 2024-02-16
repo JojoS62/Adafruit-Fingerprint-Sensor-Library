@@ -81,37 +81,13 @@ Adafruit_Fingerprint::Adafruit_Fingerprint(SoftwareSerial *ss,
 
 */
 /**************************************************************************/
-Adafruit_Fingerprint::Adafruit_Fingerprint(HardwareSerial *hs,
+Adafruit_Fingerprint::Adafruit_Fingerprint(BufferedSerial *hs,
                                            uint32_t password) {
   thePassword = password;
   theAddress = 0xFFFFFFFF;
 
-#if defined(__AVR__) || defined(ESP8266) || defined(FREEDOM_E300_HIFIVE1)
-  swSerial = NULL;
-#endif
-  hwSerial = hs;
-  mySerial = hwSerial;
-}
-
-/**************************************************************************/
-/*!
-    @brief  Instantiates sensor with a stream for Serial
-    @param  serial Pointer to a Stream object
-    @param  password 32-bit integer password (default is 0)
-
-*/
-/**************************************************************************/
-
-Adafruit_Fingerprint::Adafruit_Fingerprint(Stream *serial, uint32_t password) {
-
-  thePassword = password;
-  theAddress = 0xFFFFFFFF;
-
-  hwSerial = NULL;
-#if defined(__AVR__) || defined(ESP8266) || defined(FREEDOM_E300_HIFIVE1)
-  swSerial = NULL;
-#endif
-  mySerial = serial;
+  mySerial = hs;
+  // mySerial = hwSerial;
 }
 
 /**************************************************************************/
@@ -121,10 +97,11 @@ Adafruit_Fingerprint::Adafruit_Fingerprint(Stream *serial, uint32_t password) {
 */
 /**************************************************************************/
 void Adafruit_Fingerprint::begin(uint32_t baudrate) {
-  delay(1000); // one second delay to let the sensor 'boot up'
+  ThisThread::sleep_for(1s); // one second delay to let the sensor 'boot up'
 
-  if (hwSerial)
-    hwSerial->begin(baudrate);
+  if (mySerial)
+    mySerial->set_baud(baudrate);
+
 #if defined(__AVR__) || defined(ESP8266) || defined(FREEDOM_E300_HIFIVE1)
   if (swSerial)
     swSerial->begin(baudrate);
@@ -138,7 +115,7 @@ void Adafruit_Fingerprint::begin(uint32_t baudrate) {
     @returns True if password is correct
 */
 /**************************************************************************/
-boolean Adafruit_Fingerprint::verifyPassword(void) {
+bool Adafruit_Fingerprint::verifyPassword(void) {
   return checkPassword() == FINGERPRINT_OK;
 }
 
@@ -481,17 +458,18 @@ uint8_t Adafruit_Fingerprint::setPacketSize(uint8_t size) {
 void Adafruit_Fingerprint::writeStructuredPacket(
     const Adafruit_Fingerprint_Packet &packet) {
 
-  mySerial->write((uint8_t)(packet.start_code >> 8));
-  mySerial->write((uint8_t)(packet.start_code & 0xFF));
-  mySerial->write(packet.address[0]);
-  mySerial->write(packet.address[1]);
-  mySerial->write(packet.address[2]);
-  mySerial->write(packet.address[3]);
-  mySerial->write(packet.type);
+  // mySerial->write((packet.start_code >> 8), 1);
+  // mySerial->write((packet.start_code & 0xFF), 1);
+  uint16_t tmp = __bswap16(packet.start_code);
+  mySerial->write(&tmp, 2);
+  mySerial->write(packet.address, 4);
+  mySerial->write(&packet.type, 1);
 
   uint16_t wire_length = packet.length + 2;
-  mySerial->write((uint8_t)(wire_length >> 8));
-  mySerial->write((uint8_t)(wire_length & 0xFF));
+  // mySerial->write((uint8_t)(wire_length >> 8), 1);
+  // mySerial->write((uint8_t)(wire_length & 0xFF), 1);
+  tmp = __bswap16(wire_length);
+  mySerial->write(&tmp, 2);
 
 #ifdef FINGERPRINT_DEBUG
   Serial.print("-> 0x");
@@ -516,16 +494,18 @@ void Adafruit_Fingerprint::writeStructuredPacket(
 
   uint16_t sum = ((wire_length) >> 8) + ((wire_length)&0xFF) + packet.type;
   for (uint8_t i = 0; i < packet.length; i++) {
-    mySerial->write(packet.data[i]);
     sum += packet.data[i];
 #ifdef FINGERPRINT_DEBUG
     Serial.print(", 0x");
     Serial.print(packet.data[i], HEX);
 #endif
   }
+   mySerial->write(packet.data, packet.length);
+   tmp = __bswap16(sum);
+   mySerial->write(&tmp, 2);
 
-  mySerial->write((uint8_t)(sum >> 8));
-  mySerial->write((uint8_t)(sum & 0xFF));
+  // mySerial->write((uint8_t)(sum >> 8), 1);
+  // mySerial->write((uint8_t)(sum & 0xFF), 1);
 
 #ifdef FINGERPRINT_DEBUG
   Serial.print(", 0x");
@@ -559,9 +539,10 @@ Adafruit_Fingerprint::getStructuredPacket(Adafruit_Fingerprint_Packet *packet,
 #endif
 
   while (true) {
-    while (!mySerial->available()) {
-      delay(1);
-      timer++;
+    while (!mySerial->readable()) {
+      // wait_us(1000);  // todo
+      // ThisThread::sleep_for(1s);
+      // timer++;
       if (timer >= timeout) {
 #ifdef FINGERPRINT_DEBUG
         Serial.println("Timed out");
@@ -569,7 +550,7 @@ Adafruit_Fingerprint::getStructuredPacket(Adafruit_Fingerprint_Packet *packet,
         return FINGERPRINT_TIMEOUT;
       }
     }
-    byte = mySerial->read();
+    mySerial->read(&byte, 1);
 #ifdef FINGERPRINT_DEBUG
     Serial.print("0x");
     Serial.print(byte, HEX);
