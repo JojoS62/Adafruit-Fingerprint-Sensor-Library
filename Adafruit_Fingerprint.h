@@ -59,6 +59,7 @@
 #define FINGERPRINT_STORE 0x06          //!< Store template
 #define FINGERPRINT_LOAD 0x07           //!< Read/load template
 #define FINGERPRINT_UPLOAD 0x08         //!< Upload template
+#define FINGERPRINT_UP_IMG 0x0A         //!< Upload image
 #define FINGERPRINT_DELETE 0x0C         //!< Delete templates
 #define FINGERPRINT_EMPTY 0x0D          //!< Empty library
 #define FINGERPRINT_READSYSPARAM 0x0F   //!< Read system parameters
@@ -165,6 +166,8 @@ public:
   uint8_t getImage(void);
   uint8_t image2Tz(uint8_t slot = 1);
   uint8_t createModel(void);
+
+  uint8_t uploadImage(void);
 
   uint8_t emptyDatabase(void);
   uint8_t storeModel(uint16_t id);

@@ -245,6 +245,17 @@ uint8_t Adafruit_Fingerprint::getModel(void) {
 
 /**************************************************************************/
 /*!
+    @brief   Ask the sensor to transfer 256-byte fingerprint template from the
+   buffer to the UART
+    @returns <code>FINGERPRINT_OK</code> on success
+    @returns <code>FINGERPRINT_PACKETRECIEVEERR</code> on communication error
+*/
+uint8_t Adafruit_Fingerprint::uploadImage(void) {
+  SEND_CMD_PACKET(FINGERPRINT_UP_IMG, 0x01);
+}
+
+/**************************************************************************/
+/*!
     @brief   Ask the sensor to delete a model in memory
     @param   location The model location #
     @returns <code>FINGERPRINT_OK</code> on success
