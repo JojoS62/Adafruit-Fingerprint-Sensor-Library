@@ -162,6 +162,23 @@ uint8_t Adafruit_Fingerprint::getParameters(void) {
   return packet.data[0];
 }
 
+uint8_t Adafruit_Fingerprint::readProductInfo(ProductInfo &info) {
+  GET_CMD_PACKET(0x3C);
+    memcpy(info.module_type, &packet.data[1], 16);
+    memcpy(info.module_batch_number, &packet.data[17], 4);
+    memcpy(info.module_serial_number, &packet.data[21], 8);
+    info.hardware_version[0] = packet.data[29];
+    info.hardware_version[1] = packet.data[30];
+    memcpy(info.sensor_type, &packet.data[31], 8);
+    info.sensor_width = packet.data[39] << 8 | packet.data[40];
+    info.sensor_height = packet.data[41] << 8 | packet.data[42];
+    info.template_size = packet.data[43] << 8 | packet.data[44];
+    info.database_size = packet.data[45] << 8 | packet.data[46];
+    
+    return  packet.data[0];
+}
+
+
 /**************************************************************************/
 /*!
     @brief   Ask the sensor to take an image of the finger pressed on surface
@@ -250,8 +267,31 @@ uint8_t Adafruit_Fingerprint::getModel(void) {
     @returns <code>FINGERPRINT_OK</code> on success
     @returns <code>FINGERPRINT_PACKETRECIEVEERR</code> on communication error
 */
-uint8_t Adafruit_Fingerprint::uploadImage(void) {
-  SEND_CMD_PACKET(FINGERPRINT_UP_IMG, 0x01);
+
+DigitalOut  testPin1(PA_6);
+DigitalOut  testPin2(PA_4);
+
+uint8_t Adafruit_Fingerprint::uploadImage(uint8_t *imageBuffer) {
+    GET_CMD_PACKET(FINGERPRINT_UP_IMG);
+
+    int length = 0;
+    if (packet.data[0] == FINGERPRINT_OK) {
+      packet.type = 0x02;
+      packetCount = 0;
+      testPin2 = 1;
+      while(packet.type == 0x02) {
+          testPin1 = 1;
+          getStructuredPacket(&packet);
+          memcpy(&imageBuffer[length], packet.data, packet.length);
+          packetCount++;
+          length += packet.length;
+          testPin1 = 0;
+      }
+      testPin2 = 0;
+    }
+
+    printf("  image size: %d\n", length);
+    return (packetCount == 144) ? FINGERPRINT_OK : FINGERPRINT_PACKETRECIEVEERR;
 }
 
 /**************************************************************************/
@@ -543,7 +583,8 @@ uint8_t
 Adafruit_Fingerprint::getStructuredPacket(Adafruit_Fingerprint_Packet *packet,
                                           uint16_t timeout) {
   uint8_t byte;
-  uint16_t idx = 0, timer = 0;
+  uint16_t idx = 0;
+  uint16_t timer = 0;
 
 #ifdef FINGERPRINT_DEBUG
   Serial.print("<- ");
@@ -552,8 +593,8 @@ Adafruit_Fingerprint::getStructuredPacket(Adafruit_Fingerprint_Packet *packet,
   while (true) {
     while (!mySerial->readable()) {
       // wait_us(1000);  // todo
-      // ThisThread::sleep_for(1s);
-      // timer++;
+      ThisThread::sleep_for(1ms);
+      timer++;
       if (timer >= timeout) {
 #ifdef FINGERPRINT_DEBUG
         Serial.println("Timed out");
@@ -604,7 +645,7 @@ Adafruit_Fingerprint::getStructuredPacket(Adafruit_Fingerprint_Packet *packet,
       break;
     }
     idx++;
-    if ((idx + 9) >= sizeof(packet->data)) {
+    if (((size_t)idx + 9) >= sizeof(packet->data)) {
       return FINGERPRINT_BADPACKET;
     }
   }

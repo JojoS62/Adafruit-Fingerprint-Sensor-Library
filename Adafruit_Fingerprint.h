@@ -120,7 +120,20 @@
 
 #define DEFAULTTIMEOUT 1000 //!< UART reading timeout in milliseconds
 
+// structure to hold info about R503
+typedef struct  {
+    char module_type[16];
+    char module_batch_number[4];
+    char module_serial_number[8];
+    uint8_t hardware_version[2];
+    char sensor_type[8];
+    uint16_t sensor_width;
+    uint16_t sensor_height;
+    uint16_t template_size;
+    uint16_t database_size;
+} ProductInfo;
 ///! Helper class to craft UART packets
+
 struct Adafruit_Fingerprint_Packet {
 
   /**************************************************************************/
@@ -141,16 +154,16 @@ struct Adafruit_Fingerprint_Packet {
     address[1] = 0xFF;
     address[2] = 0xFF;
     address[3] = 0xFF;
-    if (length < 64)
+    if (length < 256)
       memcpy(this->data, data, length);
     else
-      memcpy(this->data, data, 64);
+      memcpy(this->data, data, 256);
   }
   uint16_t start_code; ///< "Wakeup" code for packet detection
   uint8_t address[4];  ///< 32-bit Fingerprint sensor address
   uint8_t type;        ///< Type of packet
   uint16_t length;     ///< Length of packet
-  uint8_t data[64];    ///< The raw buffer for packet payload
+  uint8_t data[256];    ///< The raw buffer for packet payload
 };
 
 ///! Helper class to communicate with and keep state for fingerprint sensors
@@ -162,12 +175,13 @@ public:
 
   bool verifyPassword(void);
   uint8_t getParameters(void);
+  uint8_t readProductInfo(ProductInfo &info);
 
   uint8_t getImage(void);
   uint8_t image2Tz(uint8_t slot = 1);
   uint8_t createModel(void);
 
-  uint8_t uploadImage(void);
+  uint8_t uploadImage(uint8_t *imageBuffer);
 
   uint8_t emptyDatabase(void);
   uint8_t storeModel(uint16_t id);
@@ -207,12 +221,14 @@ public:
   uint16_t packet_len = 64;   ///< The max packet length (set by getParameters)
   uint16_t baud_rate = 57600; ///< The UART baud rate (set by getParameters)
 
+  int packetCount;
+
 private:
   uint8_t checkPassword(void);
   uint8_t writeRegister(uint8_t regAdd, uint8_t value);
   uint32_t thePassword;
   uint32_t theAddress;
-  uint8_t recvPacket[20];
+  // uint8_t recvPacket[20];
 
   BufferedSerial *mySerial;
 
