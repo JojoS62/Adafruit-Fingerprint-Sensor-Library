@@ -274,24 +274,33 @@ DigitalOut  testPin2(PA_4);
 uint8_t Adafruit_Fingerprint::uploadImage(uint8_t *imageBuffer) {
     GET_CMD_PACKET(FINGERPRINT_UP_IMG);
 
-    int length = 0;
-    if (packet.data[0] == FINGERPRINT_OK) {
-      packet.type = 0x02;
+    uint8_t result = packet.data[0];
+    if (result == FINGERPRINT_OK) {
+      int length = 0;
       packetCount = 0;
+      
       testPin2 = 1;
-      while(packet.type == 0x02) {
+      
+      packet.type = 0x02;
+      while (packet.type == 0x02) {
           testPin1 = 1;
-          getStructuredPacket(&packet);
-          memcpy(&imageBuffer[length], packet.data, packet.length);
+
+          result = getStructuredPacket(&packet);
+          if (result != FINGERPRINT_OK) 
+            break;
+          if (imageBuffer)
+            memcpy(&imageBuffer[length], packet.data, packet.length-2);
+          length += packet.length-2;
           packetCount++;
-          length += packet.length;
+          
           testPin1 = 0;
       }
       testPin2 = 0;
+
+      printf("  image size: %d\n", length);
     }
 
-    printf("  image size: %d\n", length);
-    return (packetCount == 144) ? FINGERPRINT_OK : FINGERPRINT_PACKETRECIEVEERR;
+    return result;
 }
 
 /**************************************************************************/
