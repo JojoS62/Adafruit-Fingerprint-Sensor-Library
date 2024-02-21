@@ -185,7 +185,7 @@ public:
   uint8_t image2Tz(uint8_t slot = 1);
   uint8_t createModel(void);
 
-  uint8_t uploadImage(uint8_t *imageBuffer);
+  uint8_t uploadImage(uint8_t *imageBuffer, size_t bufferSize);
 
   uint8_t emptyDatabase(void);
   uint8_t storeModel(uint16_t id);

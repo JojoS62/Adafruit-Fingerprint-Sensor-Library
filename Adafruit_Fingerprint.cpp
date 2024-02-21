@@ -268,10 +268,7 @@ uint8_t Adafruit_Fingerprint::getModel(void) {
     @returns <code>FINGERPRINT_PACKETRECIEVEERR</code> on communication error
 */
 
-DigitalOut  testPin1(PA_6);
-DigitalOut  testPin2(PA_4);
-
-uint8_t Adafruit_Fingerprint::uploadImage(uint8_t *imageBuffer) {
+uint8_t Adafruit_Fingerprint::uploadImage(uint8_t *imageBuffer, size_t bufferSize) {
     GET_CMD_PACKET(FINGERPRINT_UP_IMG);
 
     uint8_t result = packet.data[0];
@@ -279,25 +276,19 @@ uint8_t Adafruit_Fingerprint::uploadImage(uint8_t *imageBuffer) {
       int length = 0;
       packetCount = 0;
       
-      testPin2 = 1;
-      
       packet.type = 0x02;
       while (packet.type == 0x02) {
-          testPin1 = 1;
-
-          result = getStructuredPacket(&packet);
-          if (result != FINGERPRINT_OK) 
+          result = getStructuredPacket(&packet);          // read data packet
+          if (result != FINGERPRINT_OK) {
             break;
-          if (imageBuffer)
+          }
+
+          if ((imageBuffer) && (packet.length-2 + length <= bufferSize)) {
             memcpy(&imageBuffer[length], packet.data, packet.length-2);
+          }
           length += packet.length-2;
           packetCount++;
-          
-          testPin1 = 0;
       }
-      testPin2 = 0;
-
-      printf("  image size: %d\n", length);
     }
 
     return result;
