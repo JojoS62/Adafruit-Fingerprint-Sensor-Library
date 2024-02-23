@@ -273,7 +273,7 @@ uint8_t Adafruit_Fingerprint::uploadImage(uint8_t *imageBuffer, size_t bufferSiz
 
     uint8_t result = packet.data[0];
     if (result == FINGERPRINT_OK) {
-      int length = 0;
+      size_t length = 0;
       packetCount = 0;
       
       packet.type = 0x02;
@@ -283,10 +283,10 @@ uint8_t Adafruit_Fingerprint::uploadImage(uint8_t *imageBuffer, size_t bufferSiz
             break;
           }
 
-          if ((imageBuffer) && (packet.length-2 + length <= bufferSize)) {
-            memcpy(&imageBuffer[length], packet.data, packet.length-2);
+          if ((imageBuffer) && (packet.length + length <= bufferSize)) {
+            memcpy(&imageBuffer[length], packet.data, packet.length);
           }
-          length += packet.length-2;
+          length += packet.length;
           packetCount++;
       }
     }
@@ -640,6 +640,7 @@ Adafruit_Fingerprint::getStructuredPacket(Adafruit_Fingerprint_Packet *packet,
 #ifdef FINGERPRINT_DEBUG
         Serial.println(" OK ");
 #endif
+        packet->length -= 2;
         return FINGERPRINT_OK;
       }
       break;
